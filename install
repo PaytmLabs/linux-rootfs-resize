@@ -92,6 +92,13 @@ grub-mod() {
       # generate new grub2 config
       grub-mkconfig -o ${grub_config}
     ;;
+    "grub2.1")
+      # copy kernel
+      [ ! -f ${kernel}-mod ] && cp ${kernel} ${kernel}-mod
+      # generate new grub2 config
+      grub2-mkconfig -o ${grub_config}
+    ;;
+
   esac
 }
 
@@ -170,7 +177,7 @@ distro=""
     proc_name="growroot"
     call_insert_point="^source_all pre-mount"
     grub_config="/boot/grub2/grub.cfg"
-    grub="grub1"
+    grub="grub2.1"
   fi
 
 
