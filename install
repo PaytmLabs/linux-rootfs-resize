@@ -148,7 +148,6 @@ distro=""
     grub_config="/boot/grub/grub.conf"
     grub="grub1"
   fi
-Fedora release 21 (Twenty One)
 [ -f /etc/redhat-release ] &&
   if [[ "$(cat /etc/redhat-release)" == *Fedora\ release\ 21* ]]; then
     distro="fedora-21"
