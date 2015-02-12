@@ -169,7 +169,7 @@ distro=""
     proc_insert_point="^export PATH=.*"
     proc_name="growroot"
     call_insert_point="^source_all pre-mount"
-    grub_config="/boot/grub/grub.cfg"
+    grub_config="/boot/grub2/grub.cfg"
     grub="grub1"
   fi
 
