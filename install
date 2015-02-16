@@ -157,7 +157,7 @@ distro=""
   fi
 
 [ -f /etc/redhat-release ] &&
-  if [[ "$(cat /etc/redhat-release)" == *CentOS\ release\ 7* ]]; then
+  if [[ "$(cat /etc/redhat-release)" == *CentOS\ Linux\ release\ 7* ]]; then
     distro="centos-7"
     initrd_path="bin sbin usr/bin usr/sbin"
     kernel_version=$(uname -r)
