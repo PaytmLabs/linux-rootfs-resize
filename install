@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# by Stanislav Petr, glux@glux.org
+# Author: Stanislav Petr, glux@glux.org
+# Author: Joe Hohertz, jhohertz@gmail.com
 #
 # depends on: cloud-utils
 
@@ -16,14 +17,15 @@ done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 cd $DIR
 
-
-function deps () {
+function deps() {
   for file in ${@}; do
     # check if is a valid file
     [ -f ${file} ] &&
       # is this file new?
       if [ ! -f /tmp/initrd${file} ]; then
-        mkdir -p /tmp/initrd$(dirname ${file})
+        if [ ! -d /tmp/initrd$(dirname ${file}) ]; then
+          mkdir -p /tmp/initrd$(dirname ${file})
+        fi
         cp -v ${file} /tmp/initrd${file}
         if [ $? != 0 ]; then
           # error, bug out
@@ -34,8 +36,7 @@ function deps () {
   done
 }
 
-
-function copy-tools() {
+function copy_tools() {
   # install files listed in deps.lst
   while read tool; do
     IN=0
@@ -60,8 +61,7 @@ function copy-tools() {
   done <${inst_dir}/distro/${distro}/deps
 }
 
-
-initrd() {
+function initrd() {
   # clean up
   [ -d /tmp/initrd ] && rm -rf /tmp/initrd
   # create temp directory and move there
@@ -69,7 +69,7 @@ initrd() {
   # extract current initrd
   gunzip -c ${initrd} | cpio -i --make-directories
   # modify
-  copy-tools
+  copy_tools
   touch etc/mtab
   [ "${mod_type}" == "mod_lvm" ] && \
     sed -i "s/locking_type = 4/locking_type = 1/" etc/lvm/lvm.conf
@@ -84,7 +84,7 @@ initrd() {
   rm -rf /tmp/initrd.cpio /tmp/initrd
 }
 
-grub-mod() {
+function grub_mod() {
   kernelmod=${kernel%-*}mod-${kernel##*-}
   case ${1} in
     "grub1")
@@ -116,10 +116,10 @@ grub-mod() {
   esac
 }
 
-function partition-type() {
+function partition_type() {
   LVM=0
   # check if LVM tool lvs is present
-  which lvs 2>&1 >/dev/null
+  which lvs >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     # check for logical volumes
     if [[ "$(lvs --noheadings -o +lv_path)" != *No\ volume\ groups\ found* ]]; then
@@ -134,21 +134,43 @@ function partition-type() {
   return ${LVM}
 }
 
-# store directory from where we run install
-inst_dir=$(pwd)
+function get_distro() {
+  distro=""
+  [ -f /etc/redhat-release ] &&
+    if [[ "$(cat /etc/redhat-release)" == *CentOS\ release\ 6* ]]; then
+      distro="centos-6"
+    fi
+  [ -f /etc/issue ] &&
+    if [[ "$(cat /etc/issue)" == *Debian\ GNU\/Linux\ 8* ]]; then
+      distro="debian-8"
+    elif [[ "$(cat /etc/issue)" == *Debian\ GNU\/Linux\ 7* ]]; then
+      distro="debian-7"
+    elif [[ "$(cat /etc/issue)" == *Debian\ GNU\/Linux\ 6* ]]; then
+      distro="debian-6"
+    elif [[ "$(cat /etc/issue)" == *Ubuntu* ]]; then
+      distro="ubuntu"
+    fi
+  if [ "${distro}" == "" ]; then
+    echo "Distribution NOT supported!"
+    exit 1
+  fi
+  echo ${distro}
+}
 
-# set common variables
-partition-type
-[ $? -eq 1 ] && mod_type="mod_lvm" || mod_type="mod"
+function main() {
+  # store directory from where we run install
+  inst_dir=$(pwd)
 
-# check distro and set distro specific variables
-distro=""
+  # set common variables
+  partition_type
+  [ $? -eq 1 ] && mod_type="mod_lvm" || mod_type="mod"
 
+  # check distro 
+  distro=$(get_distro)
 
-# RedHat derivate
-[ -f /etc/redhat-release ] &&
-  if [[ "$(cat /etc/redhat-release)" == *CentOS\ release\ 6* ]]; then
-    distro="centos-6"
+  # set distro specific variables
+  # RedHat derivate
+  if [ ${distro} == "centos-6" ]; then
     initrd_path="bin sbin usr/bin usr/sbin"
     kernel_version=$(uname -r)
     initrd=$(ls -1 -t /boot/initramfs-* -1 | grep -v mod | head -n 1)
@@ -182,11 +204,7 @@ distro=""
     call_insert_point="^source_all pre-mount"
     grub_config="/boot/grub/grub.conf"
     grub="grub1"
-  fi
-  
-# Debian derivate
-[ -f /etc/issue ] &&
-  if [[ "$(cat /etc/issue)" == *Debian\ GNU\/Linux\ 8* ]]; then
+  elif [ ${distro} == "debian-7" ]; then
     distro="debian-8"
     initrd_path="bin sbin"
     initrd="/boot/initrd.img-$(uname -r)"
@@ -197,8 +215,7 @@ distro=""
     call_insert_point="^.*local_premount$"
     grub_config="/boot/grub/grub.cfg"
     grub="grub2"
-  elif [[ "$(cat /etc/issue)" == *Debian\ GNU\/Linux\ 7* ]]; then
-    distro="debian-7"
+  elif [ ${distro} == "debian-7" ]; then
     initrd_path="bin sbin"
     initrd="/boot/initrd.img-$(uname -r)"
     kernel="/boot/vmlinuz-$(uname -r)"
@@ -208,8 +225,17 @@ distro=""
     call_insert_point="^.*pre_mountroot$"
     grub_config="/boot/grub/grub.cfg"
     grub="grub2"
-  elif [[ "$(cat /etc/issue)" == *Debian\ GNU\/Linux\ 6* ]]; then
-    distro="debian-6"
+  elif [ ${distro} == "debian-6" ]; then
+    initrd_path="bin sbin"
+    initrd="/boot/initrd.img-$(uname -r)"
+    kernel="/boot/vmlinuz-$(uname -r)"
+    init_script="scripts/local"
+    proc_insert_point="^mountroot()"
+    proc_name="\        growroot"
+    call_insert_point="^.*pre_mountroot$"
+    grub_config="/boot/grub/grub.cfg"
+    grub="grub2"
+  elif [ ${distro} == "ubuntu" ]; then
     initrd_path="bin sbin"
     initrd="/boot/initrd.img-$(uname -r)"
     kernel="/boot/vmlinuz-$(uname -r)"
@@ -221,13 +247,10 @@ distro=""
     grub="grub2"
   fi
 
-# exit if distro is not supported
-if [ "${distro}" == "" ]; then
-  echo "Distribution NOT supported!"
-  exit 1
-fi
+  initrd
+  grub_mod ${grub}
+}
 
-initrd
-grub-mod ${grub}
-
+main
 exit 0
+
