@@ -139,6 +139,8 @@ function get_distro() {
   [ -f /etc/redhat-release ] &&
     if [[ "$(cat /etc/redhat-release)" == *CentOS\ release\ 6* ]]; then
       distro="centos-6"
+    elif [[ "$(cat /etc/redhat-release)" == *CentOS\ Linux\ release\ 7* ]]; then
+      distro="centos-7"
     fi
   [ -f /etc/issue ] &&
     if [[ "$(cat /etc/issue)" == *Debian\ GNU\/Linux\ 8* ]]; then
@@ -181,8 +183,7 @@ function main() {
     call_insert_point="^source_all pre-mount"
     grub_config="/boot/grub/grub.conf"
     grub="grub1"
-  elif [[ "$(cat /etc/redhat-release)" == *CentOS\ Linux\ release\ 7* ]]; then
-    distro="centos-7"
+  if [ ${distro} == "centos-7" ]; then
     initrd_path="bin sbin usr/bin usr/sbin"
     kernel_version=$(uname -r)
     initrd=$(ls -1 -t /boot/initramfs-* | grep -v -P "(mod|rescue|kdump)" | head -n 1)
@@ -204,8 +205,7 @@ function main() {
     call_insert_point="^source_all pre-mount"
     grub_config="/boot/grub/grub.conf"
     grub="grub1"
-  elif [ ${distro} == "debian-7" ]; then
-    distro="debian-8"
+  elif [ ${distro} == "debian-8" ]; then
     initrd_path="bin sbin"
     initrd="/boot/initrd.img-$(uname -r)"
     kernel="/boot/vmlinuz-$(uname -r)"
